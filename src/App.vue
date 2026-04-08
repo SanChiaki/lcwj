@@ -11,14 +11,16 @@ const mockFlowData = {
   ],
   nodes: [
     // 物料层 (Plan)
-    { id: 'm1', layerId: 'material', label: '初始计划', date: '2025-12-30', styleType: 'plan' },
+    { id: 'm1', layerId: 'material', label: '初始计划nodeWidthnodeWidth', date: '2025-12-31', styleType: 'plan' },
     { id: 'm2', layerId: 'material', label: 'MR1创建', date: '2025-12-31', styleType: 'plan' },
     { id: 'm3', layerId: 'material', label: 'MR2创建', date: '2026-01-05', styleType: 'plan' },
     { id: 'm4', layerId: 'material', label: 'MR3创建', date: '2026-02-01', styleType: 'plan' },
 
     // 路径 1 节点
-    { id: 'e1', layerId: 'warehouse_center', label: '事件1', date: '2025-12-31', styleType: 'event' },
+    { id: 'e1', layerId: 'warehouse_center', label: '事件1超长超长长', date: '2025-12-31', styleType: 'event' },
     { id: 'e2', layerId: 'xd', label: '事件2', date: '2026-01-02', styleType: 'event' },
+    { id: 'ex', layerId: 'xd', label: '事件x超长超长长超长超长长超长超长长超长超长长超长超长长', date: '2026-01-02', styleType: 'event' },
+    { id: 'ex2', layerId: 'xd', label: '事件x2超长超长长超长超长长超长超长长超长超长长', date: '2026-01-02', styleType: 'event' },
     { id: 'e3', layerId: 'xd', label: '事件3', date: '2026-01-05', styleType: 'event' },
     { id: 'e4', layerId: 'temp_store', label: '事件4', date: '2026-01-08', styleType: 'event' },
     { id: 't3', layerId: 'team', label: '第一次签收', date: '2026-01-16', styleType: 'plan' },

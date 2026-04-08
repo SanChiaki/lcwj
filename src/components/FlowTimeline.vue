@@ -53,7 +53,7 @@ const renderFlow = (graph, data) => {
     return dateStr;
   };
 
-  // 1. 计算坐标 - 按日期分配X坐标，同日期节点中心对齐，保证间隙
+  // 1. 计算坐标 - 按日期分配X坐标，同日期节点垂直堆叠，泳道高度动态计算
   const nodePositions = new Map();
 
   // 收集所有唯一日期并排序
@@ -66,27 +66,120 @@ const renderFlow = (graph, data) => {
     dateToX.set(date, CONFIG.startX + index * DATE_GAP);
   });
 
-  // 按层处理节点
-  layers.forEach((layer, layerIdx) => {
-    const centerY = CONFIG.startY + layerIdx * CONFIG.rowHeight + CONFIG.rowHeight / 2;
+  // 计算每层的高度需求（基于该层最大堆叠节点数）
+  const layerHeights = [];
+  const layerDateGroups = [];
 
+  layers.forEach((layer, layerIdx) => {
     // 按日期分组
     const dateGroups = new Map();
-    nodes.filter(n => n.layerId === layer.id).forEach(node => {
+    const layerNodes = nodes.filter(n => n.layerId === layer.id);
+
+    layerNodes.forEach(node => {
       const date = node.date || '';
       if (!dateGroups.has(date)) dateGroups.set(date, []);
       dateGroups.get(date).push(node);
     });
 
+    layerDateGroups.push(dateGroups);
+
+    // 计算该层最大堆叠高度和最大节点宽度
+    let maxStackHeight = 1;
+    let maxNodeWidth = 80;
+    dateGroups.forEach((dateNodes) => {
+      const nodeHeight = dateNodes[0].styleType === 'plan' ? 40 : 44;
+      const stackHeight = dateNodes.length * nodeHeight + (dateNodes.length - 1) * 10;
+      maxStackHeight = Math.max(maxStackHeight, stackHeight);
+
+      // 计算该日期组的最大节点宽度
+      dateNodes.forEach(node => {
+        if (node.styleType !== 'plan') {
+          const MAX_NODE_WIDTH = 160;
+          const calcTextWidth = (text, fontSize) => {
+            let width = 0;
+            for (const char of (text || '')) {
+              width += (char.charCodeAt(0) > 127) ? fontSize : fontSize * 0.6;
+            }
+            return width;
+          };
+          const dateWidth = calcTextWidth(node.date, 9);
+          const labelWidth = calcTextWidth(node.label, 11);
+          const nodeWidth = Math.min(MAX_NODE_WIDTH, Math.max(80, Math.max(dateWidth, labelWidth) + 16));
+          maxNodeWidth = Math.max(maxNodeWidth, nodeWidth);
+        } else {
+          maxNodeWidth = Math.max(maxNodeWidth, 120);
+        }
+      });
+    });
+
+    // 计算层高度
+    // lane层: 对称分布，上下都需要空间
+    // timeline层: 节点从中心向下堆叠，只需要下方空间
+    const isTimeline = layer.type === 'timeline';
+    const layerHeight = isTimeline
+      ? Math.max(CONFIG.rowHeight, maxStackHeight + 80) // 80=圆点上方空间(45) + 圆点到第一个节点(35)
+      : Math.max(CONFIG.rowHeight, maxStackHeight + 40); // 40=上下边距各20
+    layerHeights.push(layerHeight);
+  });
+
+  // 计算每层的累积Y位置
+  const layerYPositions = [];
+  let currentY = CONFIG.startY;
+  layerHeights.forEach((height, idx) => {
+    const isTimeline = layers[idx].type === 'timeline';
+    // timeline层: 圆点在层顶部向下45px处(给日期标签留空间)
+    // lane层: 中心在层中间
+    const centerY = isTimeline ? currentY + 45 : currentY + height / 2;
+    layerYPositions.push({
+      topY: currentY,
+      centerY: centerY,
+      height: height
+    });
+    currentY += height;
+  });
+
+  // 放置节点
+  layers.forEach((layer, layerIdx) => {
+    const { centerY } = layerYPositions[layerIdx];
+    const dateGroups = layerDateGroups[layerIdx];
+
     // 处理每个日期组
+    const isTimeline = layer.type === 'timeline';
     dateGroups.forEach((dateNodes, date) => {
       const baseX = dateToX.get(date) || CONFIG.startX;
-      const actualWidth = dateNodes[0].styleType === 'plan' ? 120 : 80;
+      const actualHeight = dateNodes[0].styleType === 'plan' ? 40 : 44;
 
-      // 同层同日期节点水平偏移避免重叠
+      // 同层同日期节点垂直堆叠
       dateNodes.forEach((node, idx) => {
-        const offsetX = (idx - (dateNodes.length - 1) / 2) * (actualWidth + 30);
-        nodePositions.set(node.id, { x: baseX + offsetX, y: centerY, width: actualWidth });
+        // 根据文字长度计算节点宽度
+        let actualWidth;
+        if (node.styleType === 'plan') {
+          actualWidth = 120; // plan节点固定宽度
+        } else {
+          // lane节点根据文字计算宽度（限制最大宽度，超出换行）
+          const MAX_NODE_WIDTH = 160; // 最大宽度限制
+          const calcTextWidth = (text, fontSize) => {
+            let width = 0;
+            for (const char of (text || '')) {
+              width += (char.charCodeAt(0) > 127) ? fontSize : fontSize * 0.6;
+            }
+            return width;
+          };
+          const dateWidth = calcTextWidth(node.date, 9);
+          const labelWidth = calcTextWidth(node.label, 11);
+          actualWidth = Math.min(MAX_NODE_WIDTH, Math.max(80, Math.max(dateWidth, labelWidth) + 16));
+        }
+
+        let offsetY;
+        if (isTimeline) {
+          // timeline层: 从圆点(即centerY)下方开始向下堆叠
+          // 圆点半径6，再留10px间距，第一个节点中心在圆点下方26px
+          offsetY = idx * (actualHeight + 10) + 26;
+        } else {
+          // lane层: 以中心对称分布
+          offsetY = (idx - (dateNodes.length - 1) / 2) * (actualHeight + 10);
+        }
+        nodePositions.set(node.id, { x: baseX, y: centerY + offsetY, width: actualWidth });
       });
     });
   });
@@ -101,9 +194,8 @@ const renderFlow = (graph, data) => {
   const separatorNodes = []; // 收集分隔线节点用于排除
 
   layers.forEach((layer, index) => {
-    const topY = CONFIG.startY + index * CONFIG.rowHeight;
-    const bottomY = topY + CONFIG.rowHeight;
-    const centerY = topY + CONFIG.rowHeight / 2;
+    const { topY, centerY, height: rowHeight } = layerYPositions[index];
+    const bottomY = topY + rowHeight;
     const isTimeline = layer.type === 'timeline';
 
     // 绘制顶部边界/分隔线 (跳过最顶层)
@@ -159,6 +251,42 @@ const renderFlow = (graph, data) => {
   });
 
   // 3. 渲染业务节点
+  // 先按 timeline 层和日期分组，用于渲染圆点和日期（每个日期只渲染一次）
+  const timelineDateMarkers = new Map();
+
+  nodes.forEach(node => {
+    const layer = layers.find(l => l.id === node.layerId);
+    if (layer && layer.type === 'timeline' && node.date) {
+      const key = `${layer.id}-${node.date}`;
+      if (!timelineDateMarkers.has(key)) {
+        const layerIndex = layers.findIndex(l => l.id === layer.id);
+        const isBottomTimeline = isLastLayer(layerIndex);
+        const nodeColor = isBottomTimeline ? '#9f45fc' : '#4A86E8';
+
+        const baseX = dateToX.get(node.date) || CONFIG.startX;
+        const centerY = layerYPositions[layerIndex].centerY;
+
+        // 1. 圆点（渲染在坐标轴上，每个日期只一个）
+        graph.addNode({
+          x: baseX - 6, y: centerY - 6, width: 12, height: 12,
+          shape: 'circle',
+          attrs: { body: { fill: nodeColor, stroke: '#fff', strokeWidth: 2 } },
+          zIndex: 5
+        });
+        // 2. 日期标签（渲染在圆点上方）
+        graph.addNode({
+          x: baseX - 60, y: centerY - 45, width: 120, height: 30,
+          shape: 'text-block', text: node.date,
+          attrs: { body: { fill: 'none', stroke: 'none' }, text: { fontSize: 13, textAlign: 'center', fill: '#333', fontWeight: 'bold' } },
+          zIndex: 5
+        });
+
+        timelineDateMarkers.set(key, true);
+      }
+    }
+  });
+
+  // 渲染所有节点（包括 timeline 和 lane）
   nodes.forEach(node => {
     const pos = nodePositions.get(node.id);
     if (!pos) return;
@@ -167,31 +295,14 @@ const renderFlow = (graph, data) => {
     const isTimelineNode = layer && layer.type === 'timeline';
 
     if (isTimelineNode) {
-      const layerIndex = layers.findIndex(l => l.id === layer.id);
-      const isBottomTimeline = isLastLayer(layerIndex);
-      const nodeColor = isBottomTimeline ? '#9f45fc' : '#4A86E8';
-
-      // 1. 圆点
-      graph.addNode({
-        x: pos.x - 6, y: pos.y - 6, width: 12, height: 12,
-        shape: 'circle',
-        attrs: { body: { fill: nodeColor, stroke: '#fff', strokeWidth: 2 } },
-        zIndex: 5
-      });
-      // 2. 日期
-      if (node.date) {
-        graph.addNode({
-          x: pos.x - 60, y: pos.y - 45, width: 120, height: 30,
-          shape: 'text-block', text: node.date,
-          attrs: { body: { fill: 'none', stroke: 'none' }, text: { fontSize: 13, textAlign: 'center', fill: '#333', fontWeight: 'bold' } },
-          zIndex: 5
-        });
-      }
       // 3. 业务方框 (ID 用于连线) - 圆角矩形, 边框固定颜色 #e3e4e6
       graph.addNode({
-        id: node.id, x: pos.x - 60, y: pos.y + 15, width: 120, height: 40,
+        id: node.id, x: pos.x - 60, y: pos.y - 20, width: 120, height: 40,
         label: node.label,
-        attrs: { body: { stroke: '#e3e4e6', strokeWidth: 2, fill: '#fff', rx: 6, ry: 6 }, label: { fill: '#333', fontSize: 13 } },
+        attrs: {
+          body: { stroke: '#e3e4e6', strokeWidth: 2, fill: '#fff', rx: 6, ry: 6 },
+          label: { fill: '#333', fontSize: 13, textWrap: { width: 108, ellipsis: true } }
+        },
         zIndex: 5
       });
 
@@ -201,11 +312,26 @@ const renderFlow = (graph, data) => {
       const dateText = node.date || '';
       const labelText = node.label || '';
 
+      // 根据文字长度计算节点宽度 (中文字符约14px，英文字符约8px)
+      const calcTextWidth = (text, fontSize) => {
+        let width = 0;
+        for (const char of text) {
+          width += (char.charCodeAt(0) > 127) ? fontSize : fontSize * 0.6;
+        }
+        return width;
+      };
+
+      const MAX_NODE_WIDTH = 120; // 最大宽度限制
+      const dateWidth = calcTextWidth(dateText, 9);
+      const labelWidth = calcTextWidth(labelText, 11);
+      const contentWidth = Math.max(dateWidth, labelWidth);
+      const nodeWidth = Math.min(MAX_NODE_WIDTH, Math.max(80, contentWidth + 16)); // 最小80px，最大120px
+
       graph.addNode({
         id: node.id,
-        x: pos.x - 40,
+        x: pos.x - nodeWidth / 2,
         y: pos.y - 22,
-        width: 80,
+        width: nodeWidth,
         height: 44,
         shape: 'rect',
         attrs: {
@@ -219,14 +345,16 @@ const renderFlow = (graph, data) => {
             text: dateText,
             fill: '#666',
             fontSize: 9,
-            refY: 12
+            refY: 12,
+            textWrap: { width: nodeWidth - 12, ellipsis: true }
           },
           label2: {
             text: labelText,
             fill: '#333',
             fontSize: 11,
             fontWeight: 'bold',
-            refY: 28
+            refY: 28,
+            textWrap: { width: nodeWidth - 12, ellipsis: true }
           }
         },
         markup: [
