@@ -18,6 +18,7 @@ const mockFlowData = {
 
     // 路径 1 节点
     { id: 'e1', layerId: 'warehouse_center', label: '事件1超长超长长', date: '2025-12-31', styleType: 'event' },
+    { id: 'e1-2', layerId: 'warehouse_center', label: '事件1-2超长超长长', date: '2025-12-31', styleType: 'event' },
     { id: 'e2', layerId: 'xd', label: '事件2', date: '2026-01-02', styleType: 'event' },
     { id: 'ex', layerId: 'xd', label: '事件x超长超长长超长超长长超长超长长超长超长长超长超长长', date: '2026-01-02', styleType: 'event' },
     { id: 'ex2', layerId: 'xd', label: '事件x2超长超长长超长超长长超长超长长超长超长长', date: '2026-01-02', styleType: 'event' },
@@ -43,7 +44,8 @@ const mockFlowData = {
   ],
   links: [
     // Path 1
-    { source: 'm2', target: 'e1' },
+    { source: 'm1', target: 'e1' },
+    { source: 'm2', target: 'e1-2' },
     { source: 'e1', target: 'e2' },
     { source: 'e2', target: 'e3' },
     { source: 'e3', target: 'e4' },

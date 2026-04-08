@@ -13,7 +13,7 @@ const container = ref(null);
 const CONFIG = {
   columnWidth: 200,
   rowHeight: 120, 
-  startX: 150,
+  startX: 220,
   startY: 60,
   minGap: 60,
 };
@@ -61,7 +61,7 @@ const renderFlow = (graph, data) => {
 
   // 为每个日期分配X坐标
   const dateToX = new Map();
-  const DATE_GAP = 130; // 日期之间的间距
+  const DATE_GAP = 160; // 日期之间的间距
   allDates.forEach((date, index) => {
     dateToX.set(date, CONFIG.startX + index * DATE_GAP);
   });
@@ -186,7 +186,8 @@ const renderFlow = (graph, data) => {
 
   let maxRightX = CONFIG.startX + 800;
   nodePositions.forEach(pos => { if (pos.x + pos.width / 2 > maxRightX) maxRightX = pos.x + pos.width / 2; });
-  const lineTotalWidth = maxRightX - (CONFIG.startX - 100) + 100;
+  const lineStartX = 80;
+  const lineTotalWidth = maxRightX - lineStartX + 100;
 
   // 2. 渲染背景线和时间轴线 (使用 Node 替代 Edge 以防不显示)
   const isFirstLayer = (idx) => idx === 0;
@@ -202,7 +203,7 @@ const renderFlow = (graph, data) => {
     if (!isFirstLayer(index)) {
       if (!isTimeline || (layers[index-1] && layers[index-1].type !== 'timeline')) {
         const sepNode = graph.addNode({
-          x: CONFIG.startX - 100, y: topY, width: lineTotalWidth, height: 1,
+          x: lineStartX, y: topY, width: lineTotalWidth, height: 1,
           shape: 'rect', attrs: { body: { fill: '#000', stroke: 'none' } }, zIndex: 1,
           data: { isSeparator: true }
         });
@@ -225,7 +226,7 @@ const renderFlow = (graph, data) => {
 
     if (isTimeline) {
       graph.addEdge({
-        source: { x: CONFIG.startX - 100, y: centerY },
+        source: { x: 80, y: centerY },
         target: { x: maxRightX + 100, y: centerY },
         attrs: { line: { stroke: layerColor, strokeWidth: 2, targetMarker: 'classic' } },
         zIndex: 1
@@ -394,7 +395,7 @@ const renderFlow = (graph, data) => {
           endDirections
         }
       },
-      connector: { name: 'smooth', args: { radius: 8 } },
+      connector: { name: 'rounded', args: { radius: 8 } },
       attrs: { line: { stroke: '#4A86E8', strokeWidth: 1.5, targetMarker: { name: 'classic', size: 6 } } },
       zIndex: 2
     });
