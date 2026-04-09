@@ -273,7 +273,7 @@ const renderFlow = (graph, data) => {
 
     // 渲染连线（无标签）
     const totalEdges = edgeProcesses.length;
-    const edgeSpacing = 50;
+    const edgeSpacing = 60;
     const baseX = fromPos.x + fromPos.width / 2;
     const startOffsetX = -(totalEdges - 1) * edgeSpacing / 2;
 
@@ -298,33 +298,33 @@ const renderFlow = (graph, data) => {
     const gapTop = fromPos.y + fromPos.height;
     const gapBottom = toPos.y;
     const gapHeight = gapBottom - gapTop;
-    const LINE_H = 16;
+    const LINE_H = 14;
 
     if (totalEdges === 1) {
       graph.addNode({
-        x: baseX - 45, y: gapTop + gapHeight / 2 - LINE_H / 2,
-        width: 90, height: LINE_H,
+        x: baseX - 55, y: gapTop + gapHeight / 2 - LINE_H / 2,
+        width: 110, height: LINE_H,
         shape: 'text-block',
-        text: `P${edgeProcesses[0].processIndex + 1}: ${formatDuration(edgeProcesses[0].duration)}`,
+        text: `Process ${edgeProcesses[0].processIndex + 1}: ${formatDuration(edgeProcesses[0].duration)}`,
         attrs: {
           body: { fill: '#fff', stroke: 'none', rx: 2 },
-          text: { fill: '#4A86E8', fontSize: 11, textAlign: 'center' },
+          text: { fill: '#4A86E8', fontSize: 10, textAlign: 'center' },
         },
         zIndex: 3,
       });
     } else {
-      const labelGap = Math.max(4, Math.floor((gapHeight - totalEdges * LINE_H) / (totalEdges + 1)));
+      const labelGap = Math.max(6, Math.floor((gapHeight - totalEdges * LINE_H) / (totalEdges + 1)));
       edgeProcesses.forEach((ep, idx) => {
         const edgeOffsetX = startOffsetX + idx * edgeSpacing;
         graph.addNode({
-          x: baseX + edgeOffsetX - 45,
+          x: baseX + edgeOffsetX - 55,
           y: gapTop + labelGap + idx * (LINE_H + labelGap),
-          width: 90, height: LINE_H,
+          width: 110, height: LINE_H,
           shape: 'text-block',
-          text: `P${ep.processIndex + 1}: ${formatDuration(ep.duration)}`,
+          text: `Process ${ep.processIndex + 1}: ${formatDuration(ep.duration)}`,
           attrs: {
             body: { fill: '#fff', stroke: 'none', rx: 2 },
-            text: { fill: '#4A86E8', fontSize: 11, textAlign: 'center' },
+            text: { fill: '#4A86E8', fontSize: 10, textAlign: 'center' },
           },
           zIndex: 3,
         });
