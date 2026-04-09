@@ -1,5 +1,55 @@
 <script setup>
+import { ref } from 'vue';
 import FlowTimeline from './components/FlowTimeline.vue';
+import ApprovalFlow from './components/ApprovalFlow.vue';
+
+const activeTab = ref('approval');
+const tabs = [
+  { key: 'approval', label: '审批流程' },
+  { key: 'flow', label: '供应链流转' },
+];
+
+const mockApprovalData = {
+  steps: [
+    { id: 'checkin', label: '打卡' },
+    { id: 'submit', label: '提交' },
+    { id: 'l1', label: 'L1审批' },
+  ],
+  processes: [
+    {
+      entries: [
+        { stepId: 'checkin', arrivedAt: '2026-03-10T13:15:00' },
+        { stepId: 'submit', arrivedAt: '2026-03-10T14:15:00' },
+        { stepId: 'l1', arrivedAt: '2026-03-10T15:15:00' },
+      ],
+    },
+    {
+      entries: [
+        { stepId: 'checkin', arrivedAt: '2026-03-10T13:35:00' },
+        { stepId: 'submit', arrivedAt: '2026-03-10T14:25:00' },
+        { stepId: 'l1', arrivedAt: '2026-03-10T15:25:00' },
+      ],
+    },
+    {
+      entries: [
+        { stepId: 'checkin', arrivedAt: '2026-03-10T14:55:00' },
+        { stepId: 'submit', arrivedAt: '2026-03-10T15:05:00' },
+        { stepId: 'l1', arrivedAt: '2026-03-10T15:25:00', rejected: true },
+      ],
+      rejection: {
+        restartFromStepId: 'checkin',
+        newProcessIndex: 3,
+      },
+    },
+    {
+      entries: [
+        { stepId: 'checkin', arrivedAt: '2026-03-10T15:45:00' },
+        { stepId: 'submit', arrivedAt: '2026-03-10T15:55:00' },
+        { stepId: 'l1', arrivedAt: '2026-03-10T16:55:00' },
+      ],
+    },
+  ],
+};
 
 const mockFlowData = {
   layers: [
@@ -68,10 +118,21 @@ const mockFlowData = {
 <template>
   <div class="app-container">
     <header>
-      <h1>物料供应链协同流转图</h1>
+      <h1>流程图</h1>
     </header>
+    <div class="tabs">
+      <button
+        v-for="tab in tabs"
+        :key="tab.key"
+        :class="['tab-btn', { active: activeTab === tab.key }]"
+        @click="activeTab = tab.key"
+      >
+        {{ tab.label }}
+      </button>
+    </div>
     <main>
-      <FlowTimeline :data="mockFlowData" />
+      <ApprovalFlow v-if="activeTab === 'approval'" :data="mockApprovalData" />
+      <FlowTimeline v-else :data="mockFlowData" />
     </main>
   </div>
 </template>
@@ -106,5 +167,28 @@ main {
   overflow: hidden;
   background: white;
   border-radius: 8px;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.tab-btn {
+  padding: 8px 20px;
+  border: 1px solid #ddd;
+  background: #f5f5f5;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  font-size: 14px;
+  color: #666;
+}
+
+.tab-btn.active {
+  background: #fff;
+  color: #1f1f1f;
+  font-weight: bold;
+  border-bottom-color: #fff;
 }
 </style>
