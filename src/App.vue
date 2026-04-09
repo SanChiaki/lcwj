@@ -48,6 +48,44 @@ const mockApprovalData = {
         { stepId: 'l1', arrivedAt: '2026-03-10T16:55:00' },
       ],
     },
+    // Process 5 (index 4) — 在提交步骤被驳回
+    {
+      entries: [
+        { stepId: 'checkin', arrivedAt: '2026-03-10T17:00:00' },
+        { stepId: 'submit',  arrivedAt: '2026-03-10T17:10:00', rejected: true },
+      ],
+      rejection: {
+        restartFromStepId: 'checkin',
+        newProcessIndex: 5,
+      },
+    },
+    // Process 6 (index 5) — 由 Process 5 驳回后重新开始
+    {
+      entries: [
+        { stepId: 'checkin', arrivedAt: '2026-03-10T17:30:00' },
+        { stepId: 'submit',  arrivedAt: '2026-03-10T17:40:00' },
+        { stepId: 'l1', arrivedAt: '2026-03-10T18:40:00' },
+      ],
+    },
+    // Process 7 (index 6) — 在提交步骤被驳回
+    {
+      entries: [
+        { stepId: 'checkin', arrivedAt: '2026-03-10T18:50:00' },
+        { stepId: 'submit',  arrivedAt: '2026-03-10T19:00:00', rejected: true },
+      ],
+      rejection: {
+        restartFromStepId: 'checkin',
+        newProcessIndex: 7,
+      },
+    },
+    // Process 8 (index 7) — 由 Process 7 驳回后重新开始
+    {
+      entries: [
+        { stepId: 'checkin', arrivedAt: '2026-03-10T19:20:00' },
+        { stepId: 'submit',  arrivedAt: '2026-03-10T19:30:00' },
+        { stepId: 'l1', arrivedAt: '2026-03-10T20:30:00' },
+      ],
+    },
   ],
 };
 

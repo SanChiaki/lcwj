@@ -63,8 +63,7 @@ const renderFlow = (graph, data) => {
   const { steps, processes } = data;
 
   // --- 配置 ---
-  const NODE_WIDTH = 320;
-  const NODE_PADDING_X = 16;
+  const NODE_PADDING_X = 20;
   const NODE_PADDING_TOP = 14;
   const TITLE_HEIGHT = 24;
   const LINE_HEIGHT = 20;
@@ -72,16 +71,25 @@ const renderFlow = (graph, data) => {
   const STEP_GAP_Y = 200;       // 主节点间垂直间距
   const START_X = 100;
   const START_Y = 60;
-  const REJECTION_OFFSET_X = 500; // 驳回节点水平偏移
+  const REJECTION_OFFSET_X = 200; // 驳回节点与主节点的间距
+
+  // 文字宽度估算
+  const calcTextWidth = (text, fontSize, bold = false) => {
+    let width = 0;
+    for (const char of (text || '')) {
+      width += (char.charCodeAt(0) > 127) ? fontSize : fontSize * 0.62;
+    }
+    if (bold) width *= 1.05;
+    return width;
+  };
 
   // --- 1. 收集每个 step 的 process 信息 ---
-  // stepProcesses[stepId] = [{ processIndex, arrivedAt, rejected }]
   const stepProcesses = new Map();
   steps.forEach(s => stepProcesses.set(s.id, []));
 
   processes.forEach((proc, pIdx) => {
     proc.entries.forEach(entry => {
-      if (stepProcesses.has(entry.stepId)) {
+      if (stepProcesses.has(entry.stepId) && !entry.rejected) {
         stepProcesses.get(entry.stepId).push({
           processIndex: pIdx,
           arrivedAt: entry.arrivedAt,
@@ -92,10 +100,26 @@ const renderFlow = (graph, data) => {
   });
 
   // --- 2. 计算主节点尺寸和位置 ---
-  const stepPositions = new Map(); // stepId → { x, y, width, height }
-  const calcNodeHeight = (processCount) => {
-    return NODE_PADDING_TOP + TITLE_HEIGHT + processCount * LINE_HEIGHT + NODE_PADDING_BOTTOM;
+  const stepPositions = new Map();
+  const calcNodeHeight = (lineCount) => {
+    return NODE_PADDING_TOP + TITLE_HEIGHT + lineCount * LINE_HEIGHT + NODE_PADDING_BOTTOM;
   };
+
+  // 先计算每个节点需要的宽度
+  const stepWidths = new Map();
+  steps.forEach((step) => {
+    const procs = stepProcesses.get(step.id);
+    const titleWidth = calcTextWidth(step.label, 15, true);
+    let maxLineWidth = titleWidth;
+    procs.forEach((p) => {
+      const text = `Process ${p.processIndex + 1}: ${formatTime(p.arrivedAt)}`;
+      maxLineWidth = Math.max(maxLineWidth, calcTextWidth(text, 12));
+    });
+    stepWidths.set(step.id, maxLineWidth + NODE_PADDING_X * 2);
+  });
+
+  // 所有主节点使用统一宽度（取最大值），保持对齐
+  const nodeWidth = Math.max(...stepWidths.values(), 200);
 
   let currentY = START_Y;
   steps.forEach((step) => {
@@ -104,22 +128,26 @@ const renderFlow = (graph, data) => {
     stepPositions.set(step.id, {
       x: START_X,
       y: currentY,
-      width: NODE_WIDTH,
+      width: nodeWidth,
       height: height
     });
     currentY += height + STEP_GAP_Y;
   });
 
   // --- 3. 收集驳回节点信息 ---
-  const rejectionNodes = []; // { processIndex, stepId, stepLabel, arrivedAt, rejectionNodeId }
+  const rejectionNodes = [];
   processes.forEach((proc, pIdx) => {
     if (proc.rejection) {
       const rejectedEntry = proc.entries.find(e => e.rejected);
       if (rejectedEntry) {
         const step = steps.find(s => s.id === rejectedEntry.stepId);
+        const stepIdx = steps.findIndex(s => s.id === rejectedEntry.stepId);
+        // 前一个步骤（连线的出发节点）
+        const prevStepId = stepIdx > 0 ? steps[stepIdx - 1].id : rejectedEntry.stepId;
         rejectionNodes.push({
           processIndex: pIdx,
           stepId: rejectedEntry.stepId,
+          prevStepId: prevStepId,
           stepLabel: step ? step.label : rejectedEntry.stepId,
           arrivedAt: rejectedEntry.arrivedAt,
           rejectionNodeId: `rejection-p${pIdx}`,
@@ -135,14 +163,13 @@ const renderFlow = (graph, data) => {
     const pos = stepPositions.get(step.id);
     const procs = stepProcesses.get(step.id);
 
-    // 构建 markup：body + title + 每个 process 一行
     const markup = [
       { tagName: 'rect', selector: 'body' },
       { tagName: 'text', selector: 'title' },
     ];
     const attrs = {
       body: {
-        fill: '#4285F4',
+        fill: '#7B9FC7',
         stroke: 'none',
         rx: 6,
         ry: 6,
@@ -187,65 +214,89 @@ const renderFlow = (graph, data) => {
   });
 
   // --- 5. 渲染驳回节点 ---
-  rejectionNodes.forEach((rn) => {
-    const sourcePos = stepPositions.get(rn.stepId);
+  const rejectionsByStep = new Map();
+  rejectionNodes.forEach(rn => {
+    if (!rejectionsByStep.has(rn.prevStepId)) {
+      rejectionsByStep.set(rn.prevStepId, []);
+    }
+    rejectionsByStep.get(rn.prevStepId).push(rn);
+  });
+
+  // 计算驳回节点宽度
+  const calcRejectionWidth = (rn) => {
+    const titleWidth = calcTextWidth(rn.stepLabel, 15, true);
+    const processLineWidth = calcTextWidth(`Process ${rn.processIndex + 1} [被驳回]`, 12);
+    const timeLineWidth = calcTextWidth(`${formatTime(rn.arrivedAt)} – Rejected`, 12);
+    return Math.max(titleWidth, processLineWidth, timeLineWidth) + NODE_PADDING_X * 2;
+  };
+
+  rejectionsByStep.forEach((rns, stepId) => {
+    const sourcePos = stepPositions.get(stepId);
     if (!sourcePos) return;
 
-    const rHeight = calcNodeHeight(1);
-    const rX = sourcePos.x + REJECTION_OFFSET_X;
-    const rY = sourcePos.y + (sourcePos.height - rHeight) / 2;
+    // 统一同组驳回节点宽度
+    const rNodeWidth = Math.max(...rns.map(calcRejectionWidth), 160);
+    const rHeight = calcNodeHeight(2);
+    const rX = sourcePos.x + sourcePos.width + REJECTION_OFFSET_X;
+    const REJECTION_GAP = 20;
+    const totalHeight = rns.length * rHeight + (rns.length - 1) * REJECTION_GAP;
+    const startY = sourcePos.y + (sourcePos.height - totalHeight) / 2;
 
-    const markup = [
-      { tagName: 'rect', selector: 'body' },
-      { tagName: 'text', selector: 'title' },
-      { tagName: 'text', selector: 'processLine' },
-      { tagName: 'text', selector: 'timeLine' },
-    ];
-    const attrs = {
-      body: {
-        fill: '#FF4D6A',
-        stroke: 'none',
-        rx: 6,
-        ry: 6,
-        width: NODE_WIDTH,
+    rns.forEach((rn, idx) => {
+      const rY = startY + idx * (rHeight + REJECTION_GAP);
+
+      const markup = [
+        { tagName: 'rect', selector: 'body' },
+        { tagName: 'text', selector: 'title' },
+        { tagName: 'text', selector: 'processLine' },
+        { tagName: 'text', selector: 'timeLine' },
+      ];
+      const attrs = {
+        body: {
+          fill: '#C87878',
+          stroke: 'none',
+          rx: 6,
+          ry: 6,
+          width: rNodeWidth,
+          height: rHeight,
+        },
+        title: {
+          text: rn.stepLabel,
+          fill: '#fff',
+          fontSize: 15,
+          fontWeight: 'bold',
+          textAnchor: 'middle',
+          refX: 0.5,
+          refY: NODE_PADDING_TOP,
+        },
+        processLine: {
+          text: `Process ${rn.processIndex + 1} [被驳回]`,
+          fill: '#fff',
+          fontSize: 12,
+          textAnchor: 'middle',
+          refX: 0.5,
+          refY: NODE_PADDING_TOP + TITLE_HEIGHT,
+        },
+        timeLine: {
+          text: `${formatTime(rn.arrivedAt)} – Rejected`,
+          fill: '#fff',
+          fontSize: 12,
+          textAnchor: 'middle',
+          refX: 0.5,
+          refY: NODE_PADDING_TOP + TITLE_HEIGHT + LINE_HEIGHT,
+        },
+      };
+
+      graph.addNode({
+        id: rn.rejectionNodeId,
+        x: rX,
+        y: rY,
+        width: rNodeWidth,
         height: rHeight,
-      },
-      title: {
-        text: rn.stepLabel,
-        fill: '#fff',
-        fontSize: 15,
-        fontWeight: 'bold',
-        textAnchor: 'middle',
-        refX: 0.5,
-        refY: NODE_PADDING_TOP,
-      },
-      processLine: {
-        text: `Process ${rn.processIndex + 1} [被驳回]`,
-        fill: '#fff',
-        fontSize: 12,
-        textAnchor: 'middle',
-        refX: 0.5,
-        refY: NODE_PADDING_TOP + TITLE_HEIGHT,
-      },
-      timeLine: {
-        text: `${formatTime(rn.arrivedAt)} – Rejected`,
-        fill: '#fff',
-        fontSize: 12,
-        textAnchor: 'middle',
-        refX: 0.5,
-        refY: NODE_PADDING_TOP + TITLE_HEIGHT + LINE_HEIGHT,
-      },
-    };
-
-    graph.addNode({
-      id: rn.rejectionNodeId,
-      x: rX,
-      y: rY,
-      width: NODE_WIDTH,
-      height: rHeight,
-      markup,
-      attrs,
-      zIndex: 5,
+        markup,
+        attrs,
+        zIndex: 5,
+      });
     });
   });
 
@@ -273,19 +324,27 @@ const renderFlow = (graph, data) => {
 
     // 渲染连线（无标签）
     const totalEdges = edgeProcesses.length;
-    const edgeSpacing = 60;
+    // 动态计算间距，确保连线不超出节点宽度
+    const maxSpread = fromPos.width * 0.8; // 最多占用节点宽度的80%
+    const edgeSpacing = Math.min(60, maxSpread / Math.max(totalEdges - 1, 1));
     const baseX = fromPos.x + fromPos.width / 2;
     const startOffsetX = -(totalEdges - 1) * edgeSpacing / 2;
 
     edgeProcesses.forEach((_, edgeIdx) => {
       const offsetX = startOffsetX + edgeIdx * edgeSpacing;
+      const srcX = baseX + offsetX;
+      const srcY = fromPos.y + fromPos.height;
+      const tgtY = toPos.y;
+      // 弧线：用中间控制点向外偏移，越靠边的线弧度越大
+      const curveOffset = (edgeIdx - (totalEdges - 1) / 2) * 15;
       graph.addEdge({
-        source: { x: baseX + offsetX, y: fromPos.y + fromPos.height },
-        target: { x: baseX + offsetX, y: toPos.y },
-        connector: { name: 'normal' },
+        source: { x: srcX, y: srcY },
+        target: { x: srcX, y: tgtY },
+        vertices: [{ x: srcX + curveOffset, y: (srcY + tgtY) / 2 }],
+        connector: { name: 'smooth' },
         attrs: {
           line: {
-            stroke: '#4A86E8',
+            stroke: '#7B9FC7',
             strokeWidth: 1.5,
             targetMarker: { name: 'classic', size: 6 },
           },
@@ -294,127 +353,167 @@ const renderFlow = (graph, data) => {
       });
     });
 
-    // 标签沿连线纵向堆叠排列
+    // 标签沿连线纵向堆叠排列（用 rect + text markup，确保字号生效）
     const gapTop = fromPos.y + fromPos.height;
     const gapBottom = toPos.y;
     const gapHeight = gapBottom - gapTop;
-    const LINE_H = 14;
+    const LINE_H = 16;
 
     if (totalEdges === 1) {
+      const labelText = `Process ${edgeProcesses[0].processIndex + 1}: ${formatDuration(edgeProcesses[0].duration)}`;
+      const labelWidth = calcTextWidth(labelText, 11) + 16;
       graph.addNode({
-        x: baseX - 55, y: gapTop + gapHeight / 2 - LINE_H / 2,
-        width: 110, height: LINE_H,
-        shape: 'text-block',
-        text: `Process ${edgeProcesses[0].processIndex + 1}: ${formatDuration(edgeProcesses[0].duration)}`,
+        x: baseX - labelWidth / 2, y: gapTop + gapHeight / 2 - LINE_H / 2,
+        width: labelWidth, height: LINE_H,
+        markup: [
+          { tagName: 'rect', selector: 'body' },
+          { tagName: 'text', selector: 'label' },
+        ],
         attrs: {
-          body: { fill: '#fff', stroke: 'none', rx: 2 },
-          text: { fill: '#4A86E8', fontSize: 10, textAlign: 'center' },
+          body: { fill: '#fff', stroke: 'none', rx: 2, ry: 2, refWidth: '100%', refHeight: '100%' },
+          label: { text: labelText, fill: '#7B9FC7', fontSize: 11, textAnchor: 'middle', refX: 0.5, refY: 0.5, yAlignment: 'middle' },
         },
-        zIndex: 3,
+        zIndex: 10,
       });
     } else {
-      const labelGap = Math.max(6, Math.floor((gapHeight - totalEdges * LINE_H) / (totalEdges + 1)));
+      const labelGap = Math.max(4, Math.floor((gapHeight - totalEdges * LINE_H) / (totalEdges + 1)));
       edgeProcesses.forEach((ep, idx) => {
+        const labelText = `Process ${ep.processIndex + 1}: ${formatDuration(ep.duration)}`;
+        const labelWidth = calcTextWidth(labelText, 11) + 16;
         const edgeOffsetX = startOffsetX + idx * edgeSpacing;
         graph.addNode({
-          x: baseX + edgeOffsetX - 55,
+          x: baseX + edgeOffsetX - labelWidth / 2,
           y: gapTop + labelGap + idx * (LINE_H + labelGap),
-          width: 110, height: LINE_H,
-          shape: 'text-block',
-          text: `Process ${ep.processIndex + 1}: ${formatDuration(ep.duration)}`,
+          width: labelWidth, height: LINE_H,
+          markup: [
+            { tagName: 'rect', selector: 'body' },
+            { tagName: 'text', selector: 'label' },
+          ],
           attrs: {
-            body: { fill: '#fff', stroke: 'none', rx: 2 },
-            text: { fill: '#4A86E8', fontSize: 10, textAlign: 'center' },
+            body: { fill: '#fff', stroke: 'none', rx: 2, ry: 2, refWidth: '100%', refHeight: '100%' },
+            label: { text: labelText, fill: '#7B9FC7', fontSize: 11, textAnchor: 'middle', refX: 0.5, refY: 0.5, yAlignment: 'middle' },
           },
-          zIndex: 3,
+          zIndex: 10,
         });
       });
     }
   }
 
   // --- 7. 渲染驳回连线 ---
-  rejectionNodes.forEach((rn) => {
-    const sourcePos = stepPositions.get(rn.stepId);
-    const rHeight = calcNodeHeight(1);
-    const rX = sourcePos.x + REJECTION_OFFSET_X;
-    const rY = sourcePos.y + (sourcePos.height - rHeight) / 2;
+  // 需要知道每个驳回节点的实际位置，重新计算
+  const rejectionPositions = new Map(); // rejectionNodeId → { x, y, width, height }
+  rejectionsByStep.forEach((rns, stepId) => {
+    const sourcePos = stepPositions.get(stepId);
+    if (!sourcePos) return;
+    const rNodeWidth = Math.max(...rns.map(calcRejectionWidth), 160);
+    const rHeight = calcNodeHeight(2);
+    const rX = sourcePos.x + sourcePos.width + REJECTION_OFFSET_X;
+    const REJECTION_GAP = 20;
+    const totalHeight = rns.length * rHeight + (rns.length - 1) * REJECTION_GAP;
+    const startY = sourcePos.y + (sourcePos.height - totalHeight) / 2;
+    rns.forEach((rn, idx) => {
+      rejectionPositions.set(rn.rejectionNodeId, {
+        x: rX, y: startY + idx * (rHeight + REJECTION_GAP),
+        width: rNodeWidth, height: rHeight,
+      });
+    });
+  });
 
-    // 从主节点到驳回节点的连线
+  // 计算所有驳回节点的最右边界，回连线需要绕过
+  let maxRejectionRight = 0;
+  rejectionPositions.forEach(pos => {
+    maxRejectionRight = Math.max(maxRejectionRight, pos.x + pos.width);
+  });
+
+  rejectionNodes.forEach((rn, rnIdx) => {
+    const prevStepPos = stepPositions.get(rn.prevStepId);
+    const rPos = rejectionPositions.get(rn.rejectionNodeId);
+    if (!rPos || !prevStepPos) return;
+
+    // 从上一个步骤节点到驳回节点的连线
     const rejectedEntry = processes[rn.processIndex].entries.find(e => e.rejected);
-    const prevEntry = processes[rn.processIndex].entries[
-      processes[rn.processIndex].entries.indexOf(rejectedEntry) - 1
-    ];
+    const prevEntry = processes[rn.processIndex].entries.find(e => e.stepId === rn.prevStepId);
     const duration = prevEntry
       ? new Date(rejectedEntry.arrivedAt) - new Date(prevEntry.arrivedAt)
       : 0;
 
+    // 源：上一个步骤节点右侧中心，目标：驳回节点左侧中心
+    const srcX = prevStepPos.x + prevStepPos.width;
+    const srcY = prevStepPos.y + prevStepPos.height / 2;
+    const tgtX = rPos.x;
+    const tgtY = rPos.y + rPos.height / 2;
+
     graph.addEdge({
-      source: { cell: rn.stepId, anchor: { name: 'right' } },
-      target: { cell: rn.rejectionNodeId, anchor: { name: 'left' } },
-      connector: { name: 'rounded', args: { radius: 8 } },
+      source: { x: srcX, y: srcY },
+      target: { x: tgtX, y: tgtY },
+      connector: { name: 'smooth' },
       labels: duration > 0 ? [
         {
           position: 0.5,
           attrs: {
             label: {
               text: `Process ${rn.processIndex + 1}: ${formatDuration(duration)}`,
-              fill: '#FF4D6A',
+              fill: '#C87878',
               fontSize: 11,
             },
-            rect: { fill: '#fff', stroke: 'none' },
+            rect: { fill: '#fff', stroke: 'none', rx: 2, ry: 2, refWidth: 8, refHeight: 4, refX: -4, refY: -2 },
           },
         },
       ] : [],
       attrs: {
         line: {
-          stroke: '#FF4D6A',
+          stroke: '#C87878',
           strokeWidth: 1.5,
           targetMarker: { name: 'classic', size: 6 },
         },
       },
-      zIndex: 2,
+      zIndex: 10,
     });
 
-    // 从驳回节点回到重新开始的步骤
+    // 从驳回节点回到重新开始的步骤（弧线绕右上方）
     const restartPos = stepPositions.get(rn.restartFromStepId);
     if (restartPos) {
-      // 计算新 process 的耗时（从驳回到新 process 的第一个 entry）
       const newProc = processes[rn.newProcessIndex];
       let restartDuration = 0;
       if (newProc && newProc.entries.length > 0) {
         restartDuration = new Date(newProc.entries[0].arrivedAt) - new Date(rejectedEntry.arrivedAt);
       }
 
+      // 用 manhattan 自动避障 + rounded 圆角拐弯
       graph.addEdge({
-        source: { cell: rn.rejectionNodeId, anchor: { name: 'top' } },
+        source: { cell: rn.rejectionNodeId, anchor: { name: 'right' } },
         target: { cell: rn.restartFromStepId, anchor: { name: 'right' } },
         router: {
           name: 'manhattan',
-          args: { padding: 40 },
+          args: {
+            padding: 30 + rnIdx * 15,
+            startDirections: ['right'],
+            endDirections: ['right'],
+          },
         },
-        connector: { name: 'rounded', args: { radius: 20 } },
+        connector: { name: 'rounded', args: { radius: 10 } },
         labels: restartDuration > 0 ? [
           {
             position: 0.5,
             attrs: {
               label: {
                 text: `Process ${rn.newProcessIndex + 1}: ${formatDuration(restartDuration)}`,
-                fill: '#FF4D6A',
+                fill: '#C87878',
                 fontSize: 11,
               },
-              rect: { fill: '#fff', stroke: 'none' },
+              rect: { fill: '#fff', stroke: 'none', rx: 2, ry: 2, refWidth: 8, refHeight: 4, refX: -4, refY: -2 },
             },
           },
         ] : [],
         attrs: {
           line: {
-            stroke: '#FF4D6A',
+            stroke: '#C87878',
             strokeWidth: 1.5,
             strokeDasharray: '6,3',
             targetMarker: { name: 'classic', size: 6 },
           },
         },
-        zIndex: 2,
+        zIndex: 10,
       });
     }
   });
