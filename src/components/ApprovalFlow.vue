@@ -480,9 +480,14 @@ const renderFlow = (graph, data) => {
       }
 
       // 用 manhattan 自动避障 + rounded 圆角拐弯
+      // 用坐标而非 cell 引用，确保从右侧出发、到达右侧
+      const arcSrcX = rPos.x + rPos.width;
+      const arcSrcY = rPos.y + rPos.height / 2;
+      const arcTgtX = restartPos.x + restartPos.width;
+      const arcTgtY = restartPos.y + restartPos.height / 2;
       graph.addEdge({
-        source: { cell: rn.rejectionNodeId, anchor: { name: 'right' } },
-        target: { cell: rn.restartFromStepId, anchor: { name: 'right' } },
+        source: { x: arcSrcX, y: arcSrcY },
+        target: { x: arcTgtX, y: arcTgtY },
         router: {
           name: 'manhattan',
           args: {
