@@ -87,13 +87,16 @@ const renderFlow = (graph, data) => {
     let maxStackHeight = 1;
     let maxNodeWidth = 80;
     dateGroups.forEach((dateNodes) => {
+      const stackNodes = dateNodes.filter(n => n.styleType !== 'checkin');
       const nodeHeight = 60;
-      const stackHeight = dateNodes.length * nodeHeight + (dateNodes.length - 1) * 10;
+      const stackHeight = stackNodes.length * nodeHeight + (stackNodes.length - 1) * 10;
       maxStackHeight = Math.max(maxStackHeight, stackHeight);
 
       // 计算该日期组的最大节点宽度
       dateNodes.forEach(node => {
-        if (node.styleType !== 'plan') {
+        if (node.styleType === 'checkin') {
+          // checkin节点不影响堆叠宽度计算
+        } else if (node.styleType !== 'plan') {
           const MAX_NODE_WIDTH = 160;
           const calcTextWidth = (text, fontSize) => {
             let width = 0;
@@ -149,8 +152,11 @@ const renderFlow = (graph, data) => {
       const baseX = dateToX.get(date) || CONFIG.startX;
       const actualHeight = 60;
 
-      // 同层同日期节点垂直堆叠
-      dateNodes.forEach((node, idx) => {
+      // 同层同日期节点垂直堆叠（checkin节点单独处理）
+      const stackNodes = dateNodes.filter(n => n.styleType !== 'checkin');
+      const checkinNodes = dateNodes.filter(n => n.styleType === 'checkin');
+
+      stackNodes.forEach((node, idx) => {
         // 根据文字长度计算节点宽度
         let actualWidth;
         if (node.styleType === 'plan') {
@@ -177,9 +183,15 @@ const renderFlow = (graph, data) => {
           offsetY = idx * (actualHeight + 10) + 46;
         } else {
           // lane层: 以中心对称分布
-          offsetY = (idx - (dateNodes.length - 1) / 2) * (actualHeight + 10);
+          offsetY = (idx - (stackNodes.length - 1) / 2) * (actualHeight + 10);
         }
         nodePositions.set(node.id, { x: baseX, y: centerY + offsetY, width: actualWidth });
+      });
+
+      // checkin节点: 放在日期标签右侧，位于日期和时间轴之间
+      checkinNodes.forEach((node) => {
+        const checkinWidth = 80;
+        nodePositions.set(node.id, { x: baseX + 40, y: centerY - 29, width: checkinWidth, styleType: 'checkin' });
       });
     });
   });
@@ -286,7 +298,27 @@ const renderFlow = (graph, data) => {
     const layer = layers.find(l => l.id === node.layerId);
     const isTimelineNode = layer && layer.type === 'timeline';
 
-    if (isTimelineNode) {
+    if (isTimelineNode && node.styleType === 'checkin') {
+      // 打卡节点: 放在日期右侧，无单号，单行显示，宽度自适应
+      const labelText = node.label || '';
+      const calcTextWidth = (text, fontSize) => {
+        let width = 0;
+        for (const char of text) {
+          width += (char.charCodeAt(0) > 127) ? fontSize : fontSize * 0.6;
+        }
+        return width;
+      };
+      const checkinW = Math.max(50, calcTextWidth(labelText, 11) + 16);
+      graph.addNode({
+        id: node.id, x: pos.x, y: pos.y - 10, width: checkinW, height: 20,
+        attrs: {
+          body: { stroke: '#e3e4e6', strokeWidth: 1, fill: '#fff', rx: 4, ry: 4 },
+          label: { text: labelText, fill: '#333', fontSize: 11, fontWeight: 'bold' },
+        },
+        zIndex: 5
+      });
+
+    } else if (isTimelineNode) {
       // 里程碑节点: 3行 - 单号 + 标题 + 物料
       const orderNoText = node.orderNo || '';
       const labelText = node.label || '';

@@ -124,7 +124,7 @@ const mockFlowData = {
 
     // 辅助节点 (添加日期)
     { id: 't1', layerId: 'team', label: '计划变更', orderNo: 'CHG-20260105-001', material: '钢板规格调整', date: '2026-01-05', styleType: 'plan' },
-    { id: 't2', layerId: 'team', label: '第一次打卡', orderNo: 'CK-20260115-001', material: '液压泵', date: '2026-01-15', styleType: 'plan' },
+    { id: 't2', layerId: 'team', label: '第一次打卡', date: '2026-01-15', styleType: 'checkin' },
   ],
   links: [
     // Path 1
