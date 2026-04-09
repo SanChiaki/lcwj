@@ -87,7 +87,7 @@ const renderFlow = (graph, data) => {
     let maxStackHeight = 1;
     let maxNodeWidth = 80;
     dateGroups.forEach((dateNodes) => {
-      const nodeHeight = dateNodes[0].styleType === 'plan' ? 40 : 44;
+      const nodeHeight = 60;
       const stackHeight = dateNodes.length * nodeHeight + (dateNodes.length - 1) * 10;
       maxStackHeight = Math.max(maxStackHeight, stackHeight);
 
@@ -147,7 +147,7 @@ const renderFlow = (graph, data) => {
     const isTimeline = layer.type === 'timeline';
     dateGroups.forEach((dateNodes, date) => {
       const baseX = dateToX.get(date) || CONFIG.startX;
-      const actualHeight = dateNodes[0].styleType === 'plan' ? 40 : 44;
+      const actualHeight = 60;
 
       // 同层同日期节点垂直堆叠
       dateNodes.forEach((node, idx) => {
@@ -173,8 +173,8 @@ const renderFlow = (graph, data) => {
         let offsetY;
         if (isTimeline) {
           // timeline层: 从圆点(即centerY)下方开始向下堆叠
-          // 圆点半径6，再留10px间距，第一个节点中心在圆点下方26px
-          offsetY = idx * (actualHeight + 10) + 26;
+          // 圆点半径6，再留10px间距，第一个节点中心在圆点下方46px
+          offsetY = idx * (actualHeight + 10) + 46;
         } else {
           // lane层: 以中心对称分布
           offsetY = (idx - (dateNodes.length - 1) / 2) * (actualHeight + 10);
@@ -202,23 +202,14 @@ const renderFlow = (graph, data) => {
     // 绘制顶部边界/分隔线 (跳过最顶层)
     if (!isFirstLayer(index)) {
       if (!isTimeline || (layers[index-1] && layers[index-1].type !== 'timeline')) {
-        const sepNode = graph.addNode({
-          x: lineStartX, y: topY, width: lineTotalWidth, height: 1,
-          shape: 'rect', attrs: { body: { fill: '#000', stroke: 'none' } }, zIndex: 1,
+        graph.addEdge({
+          source: { x: lineStartX, y: topY },
+          target: { x: lineStartX + lineTotalWidth, y: topY },
+          attrs: { line: { stroke: '#d0d0d0', strokeWidth: 1, strokeDasharray: '5,5', targetMarker: null } },
+          zIndex: 1,
           data: { isSeparator: true }
         });
-        separatorNodes.push(sepNode);
       }
-    }
-
-    // 绘制底部边界线 (跳过最底层)
-    if (!isLastLayer(index)) {
-      const sepNode = graph.addNode({
-        x: CONFIG.startX - 100, y: bottomY, width: lineTotalWidth, height: 1,
-        shape: 'rect', attrs: { body: { fill: '#000', stroke: 'none' } }, zIndex: 1,
-        data: { isSeparator: true }
-      });
-      separatorNodes.push(sepNode);
     }
 
     // 绘制时间轴 (顶层蓝色, 底层紫色)
@@ -245,7 +236,7 @@ const renderFlow = (graph, data) => {
       graph.addNode({
         x: 30, y: centerY - 15, width: 100, height: 30,
         shape: 'text-block', text: layer.label,
-        attrs: { body: { fill: 'none', stroke: 'none' }, text: { textAlign: 'left', fontSize: 14, fill: '#333' } },
+        attrs: { body: { fill: 'none', stroke: 'none' }, text: { textAlign: 'left', fontSize: 14, fill: '#999' } },
         zIndex: 10
       });
     }
@@ -296,24 +287,34 @@ const renderFlow = (graph, data) => {
     const isTimelineNode = layer && layer.type === 'timeline';
 
     if (isTimelineNode) {
-      // 3. 业务方框 (ID 用于连线) - 圆角矩形, 边框固定颜色 #e3e4e6
+      // 里程碑节点: 3行 - 单号 + 标题 + 物料
+      const orderNoText = node.orderNo || '';
+      const labelText = node.label || '';
+      const materialText = node.material || '';
       graph.addNode({
-        id: node.id, x: pos.x - 60, y: pos.y - 20, width: 120, height: 40,
-        label: node.label,
+        id: node.id, x: pos.x - 60, y: pos.y - 30, width: 120, height: 60,
         attrs: {
           body: { stroke: '#e3e4e6', strokeWidth: 2, fill: '#fff', rx: 6, ry: 6 },
-          label: { fill: '#333', fontSize: 13, textWrap: { width: 108, ellipsis: true } }
+          orderNo: { text: orderNoText, fill: '#999', fontSize: 10, refY: 12, textWrap: { width: 108, ellipsis: true } },
+          label: { text: labelText, fill: '#333', fontSize: 13, fontWeight: 'bold', refY: 30, textWrap: { width: 108, ellipsis: true } },
+          material: { text: materialText, fill: '#888', fontSize: 10, refY: 48, textWrap: { width: 108, ellipsis: true } },
         },
+        markup: [
+          { tagName: 'rect', selector: 'body' },
+          { tagName: 'text', selector: 'orderNo' },
+          { tagName: 'text', selector: 'label' },
+          { tagName: 'text', selector: 'material' },
+        ],
         zIndex: 5
       });
 
     } else {
-      // 泳道内节点: 两行显示 (日期 + 描述)
-      // 使用text-block形状,通过样式实现两行效果
+      // 泳道内节点: 3行显示 (单号 + 日期 + 标签)
+      const orderNoText = node.orderNo || '';
       const dateText = node.date || '';
       const labelText = node.label || '';
 
-      // 根据文字长度计算节点宽度 (中文字符约14px，英文字符约8px)
+      // 根据文字长度计算节点宽度
       const calcTextWidth = (text, fontSize) => {
         let width = 0;
         for (const char of text) {
@@ -322,31 +323,34 @@ const renderFlow = (graph, data) => {
         return width;
       };
 
-      const MAX_NODE_WIDTH = 120; // 最大宽度限制
+      const MAX_NODE_WIDTH = 120;
+      const orderNoWidth = calcTextWidth(orderNoText, 9);
       const dateWidth = calcTextWidth(dateText, 9);
       const labelWidth = calcTextWidth(labelText, 11);
-      const contentWidth = Math.max(dateWidth, labelWidth);
-      const nodeWidth = Math.min(MAX_NODE_WIDTH, Math.max(80, contentWidth + 16)); // 最小80px，最大120px
+      const contentWidth = Math.max(orderNoWidth, dateWidth, labelWidth);
+      const nodeWidth = Math.min(MAX_NODE_WIDTH, Math.max(80, contentWidth + 16));
 
       graph.addNode({
         id: node.id,
         x: pos.x - nodeWidth / 2,
-        y: pos.y - 22,
+        y: pos.y - 30,
         width: nodeWidth,
-        height: 44,
+        height: 60,
         shape: 'rect',
         attrs: {
-          body: {
-            fill: '#D3D3D3',
-            stroke: 'none',
-            rx: 6,
-            ry: 6
+          body: { fill: '#D3D3D3', stroke: 'none', rx: 6, ry: 6 },
+          orderNo: {
+            text: orderNoText,
+            fill: '#888',
+            fontSize: 9,
+            refY: 12,
+            textWrap: { width: nodeWidth - 12, ellipsis: true }
           },
           label: {
             text: dateText,
             fill: '#666',
             fontSize: 9,
-            refY: 12,
+            refY: 28,
             textWrap: { width: nodeWidth - 12, ellipsis: true }
           },
           label2: {
@@ -354,12 +358,13 @@ const renderFlow = (graph, data) => {
             fill: '#333',
             fontSize: 11,
             fontWeight: 'bold',
-            refY: 28,
+            refY: 45,
             textWrap: { width: nodeWidth - 12, ellipsis: true }
           }
         },
         markup: [
           { tagName: 'rect', selector: 'body' },
+          { tagName: 'text', selector: 'orderNo' },
           { tagName: 'text', selector: 'label' },
           { tagName: 'text', selector: 'label2' }
         ],

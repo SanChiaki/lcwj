@@ -10,37 +10,37 @@ const mockFlowData = {
     { id: 'team', label: '队伍', type: 'timeline' },
   ],
   nodes: [
-    // 物料层 (Plan)
-    { id: 'm1', layerId: 'material', label: '初始计划nodeWidthnodeWidth', date: '2025-12-31', styleType: 'plan' },
-    { id: 'm2', layerId: 'material', label: 'MR1创建', date: '2025-12-31', styleType: 'plan' },
-    { id: 'm3', layerId: 'material', label: 'MR2创建', date: '2026-01-05', styleType: 'plan' },
-    { id: 'm4', layerId: 'material', label: 'MR3创建', date: '2026-02-01', styleType: 'plan' },
+    // 物料层 (Plan) - 含单号和物料内容
+    { id: 'm1', layerId: 'material', label: '初始计划', orderNo: 'PO-20251231-001', material: '钢板/螺栓/线缆', date: '2025-12-31', styleType: 'plan' },
+    { id: 'm2', layerId: 'material', label: 'MR1创建', orderNo: 'MR-20251231-001', material: '液压泵组件', date: '2025-12-31', styleType: 'plan' },
+    { id: 'm3', layerId: 'material', label: 'MR2创建', orderNo: 'MR-20260105-002', material: '控制面板', date: '2026-01-05', styleType: 'plan' },
+    { id: 'm4', layerId: 'material', label: 'MR3创建', orderNo: 'MR-20260201-003', material: '发动机总成', date: '2026-02-01', styleType: 'plan' },
 
-    // 路径 1 节点
-    { id: 'e1', layerId: 'warehouse_center', label: '事件1超长超长长', date: '2025-12-31', styleType: 'event' },
-    { id: 'e1-2', layerId: 'warehouse_center', label: '事件1-2超长超长长', date: '2025-12-31', styleType: 'event' },
-    { id: 'e2', layerId: 'xd', label: '事件2', date: '2026-01-02', styleType: 'event' },
-    { id: 'ex', layerId: 'xd', label: '事件x超长超长长超长超长长超长超长长超长超长长超长超长长', date: '2026-01-02', styleType: 'event' },
-    { id: 'ex2', layerId: 'xd', label: '事件x2超长超长长超长超长长超长超长长超长超长长', date: '2026-01-02', styleType: 'event' },
-    { id: 'e3', layerId: 'xd', label: '事件3', date: '2026-01-05', styleType: 'event' },
-    { id: 'e4', layerId: 'temp_store', label: '事件4', date: '2026-01-08', styleType: 'event' },
-    { id: 't3', layerId: 'team', label: '第一次签收', date: '2026-01-16', styleType: 'plan' },
+    // 路径 1 节点 - 含单号
+    { id: 'e1', layerId: 'warehouse_center', orderNo: 'WH-001', label: '入库登记', date: '2025-12-31', styleType: 'event' },
+    { id: 'e1-2', layerId: 'warehouse_center', orderNo: 'WH-002', label: '质检完成', date: '2025-12-31', styleType: 'event' },
+    { id: 'e2', layerId: 'xd', orderNo: 'XD-101', label: '越库分拣', date: '2026-01-02', styleType: 'event' },
+    { id: 'ex', layerId: 'xd', orderNo: 'XD-102', label: '异常物料暂扣超长处理', date: '2026-01-02', styleType: 'event' },
+    { id: 'ex2', layerId: 'xd', orderNo: 'XD-103', label: '补单重发流程', date: '2026-01-02', styleType: 'event' },
+    { id: 'e3', layerId: 'xd', orderNo: 'XD-104', label: '配送出库', date: '2026-01-05', styleType: 'event' },
+    { id: 'e4', layerId: 'temp_store', orderNo: 'TS-201', label: '齐套暂存', date: '2026-01-08', styleType: 'event' },
+    { id: 't3', layerId: 'team', label: '第一次签收', orderNo: 'RC-20260116-001', material: '液压泵/钢板', date: '2026-01-16', styleType: 'plan' },
 
     // 路径 2 节点
-    { id: 'e5', layerId: 'warehouse_center', label: '事件5', date: '2026-01-10', styleType: 'event' },
-    { id: 'e6', layerId: 'xd', label: '事件6', date: '2026-01-14', styleType: 'event' },
+    { id: 'e5', layerId: 'warehouse_center', orderNo: 'WH-003', label: '二次入库', date: '2026-01-10', styleType: 'event' },
+    { id: 'e6', layerId: 'xd', orderNo: 'XD-105', label: '加急越库', date: '2026-01-14', styleType: 'event' },
 
     // 路径 3 节点
-    { id: 'e7', layerId: 'warehouse_center', label: '事件7', date: '2026-02-05', styleType: 'event' },
-    { id: 'e8', layerId: 'xd', label: '事件8', date: '2026-02-08', styleType: 'event' },
+    { id: 'e7', layerId: 'warehouse_center', orderNo: 'WH-004', label: '批次入库', date: '2026-02-05', styleType: 'event' },
+    { id: 'e8', layerId: 'xd', orderNo: 'XD-106', label: '整批分拣', date: '2026-02-08', styleType: 'event' },
 
     // 共享节点与结尾
-    { id: 'e9', layerId: 'xd', label: '事件9', date: '2026-02-12', styleType: 'event' },
-    { id: 't4', layerId: 'team', label: '第二次签收', date: '2026-02-16', styleType: 'plan' },
+    { id: 'e9', layerId: 'xd', orderNo: 'XD-107', label: '末端配送', date: '2026-02-12', styleType: 'event' },
+    { id: 't4', layerId: 'team', label: '第二次签收', orderNo: 'RC-20260216-002', material: '控制面板/发动机', date: '2026-02-16', styleType: 'plan' },
 
     // 辅助节点 (添加日期)
-    { id: 't1', layerId: 'team', label: '计划变更', date: '2026-01-05', styleType: 'plan' },
-    { id: 't2', layerId: 'team', label: '第一次打卡', date: '2026-01-15', styleType: 'plan' },
+    { id: 't1', layerId: 'team', label: '计划变更', orderNo: 'CHG-20260105-001', material: '钢板规格调整', date: '2026-01-05', styleType: 'plan' },
+    { id: 't2', layerId: 'team', label: '第一次打卡', orderNo: 'CK-20260115-001', material: '液压泵', date: '2026-01-15', styleType: 'plan' },
   ],
   links: [
     // Path 1

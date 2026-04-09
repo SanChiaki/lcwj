@@ -32,13 +32,13 @@ The `renderFlow()` function executes in 4 phases:
    - Same-layer, same-date nodes are horizontally offset to prevent overlap
 
 2. **Layer Structure** - Renders swimlane boundaries and timeline axes:
-   - Internal separator lines (black, 1px) - top and bottom outer boundaries are not drawn
+   - Internal separator lines: light gray dashed (`#d0d0d0`, `strokeDasharray: '5,5'`) — rendered as **edges** (not rect nodes), see pitfall below
    - Timeline arrows: Material layer uses blue (#4A86E8), Team layer uses purple (#9f45fc)
-   - Left-side labels: Blue vertical pill (Material) or purple vertical pill (Team)
+   - Left-side labels: Blue vertical pill (Material/timeline) or gray plain text (lane)
 
 3. **Business Nodes** - Two visual styles based on `styleType`:
-   - `plan` (timeline layers): White rounded rectangle (rx=6, ry=6) with light gray border (#e3e4e6) + circle marker (layer-colored) + optional date label
-   - `event` (intermediate lanes): Gray rounded rectangle (80x44px) with custom markup containing two text elements - date (gray #666, 9px) at refY:12, description (black #333, 11px, bold) at refY:28
+   - `plan` (timeline layers): White rounded rectangle (120×60px, rx=6, ry=6), light gray border (#e3e4e6), custom markup with 3 text rows — orderNo (gray #999, 10px, refY:12), label (bold #333, 13px, refY:30), material (gray #888, 10px, refY:48)
+   - `event` (lane nodes): Gray rounded rectangle (80–120×60px), custom markup with 3 text rows — orderNo (#888, 9px, refY:12), date (#666, 9px, refY:28), label (bold #333, 11px, refY:45)
 
 4. **Dependency Links** - Manhattan routing with obstacle avoidance:
    - Router: `manhattan` with 20px padding
@@ -58,7 +58,7 @@ The `renderFlow()` function executes in 4 phases:
   layers: {
     id: string;
     label: string;
-    type: 'timeline' | 'lane'; // timeline=blue axis layer
+    type: 'timeline' | 'lane'; // timeline=colored axis layer, lane=gray label
   }[];
   nodes: {
     id: string;
@@ -66,6 +66,8 @@ The `renderFlow()` function executes in 4 phases:
     date: string;              // Date for horizontal positioning (YYYY-MM-DD)
     label: string;
     styleType: 'plan' | 'event';
+    orderNo?: string;          // Order/document number (shown on all node types)
+    material?: string;         // Material description (plan nodes only)
   }[];
   links: { source: string; target: string; }[];
 }
@@ -80,6 +82,18 @@ The `renderFlow()` function executes in 4 phases:
 - **Z-Index Layers**: Background lines (1), dependency edges (2), nodes/markers (5), labels (10)
 
 - **X6 Configuration**: `interacting: false` (read-only), `panning: true`, `mousewheel` with Ctrl modifier
+
+## Known Pitfalls
+
+- **Do NOT use `rect` nodes for dashed separator lines.** A 1px-height rect with `stroke` renders the stroke on both the top and bottom edge, producing a visually doubled line. Use `graph.addEdge()` with `strokeDasharray` instead:
+  ```javascript
+  graph.addEdge({
+    source: { x: startX, y: y },
+    target: { x: endX, y: y },
+    attrs: { line: { stroke: '#d0d0d0', strokeWidth: 1, strokeDasharray: '5,5', targetMarker: null } },
+    zIndex: 1
+  });
+  ```
 
 ## File Structure
 
