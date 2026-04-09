@@ -479,24 +479,25 @@ const renderFlow = (graph, data) => {
         restartDuration = new Date(newProc.entries[0].arrivedAt) - new Date(rejectedEntry.arrivedAt);
       }
 
-      // 用 manhattan 自动避障 + rounded 圆角拐弯
-      // 用坐标而非 cell 引用，确保从右侧出发、到达右侧
+      // 手动路径：从驳回节点右侧出发，绕过所有节点右侧，回到重启节点右侧
       const arcSrcX = rPos.x + rPos.width;
       const arcSrcY = rPos.y + rPos.height / 2;
       const arcTgtX = restartPos.x + restartPos.width;
       const arcTgtY = restartPos.y + restartPos.height / 2;
+      // 绕行 X：所有驳回节点最右边 + 间距递增
+      const bypassX = maxRejectionRight + 50 + rnIdx * 40;
+      // 绕行 Y：重启节点顶部上方
+      const bypassTopY = restartPos.y - 30 - rnIdx * 25;
+
       graph.addEdge({
         source: { x: arcSrcX, y: arcSrcY },
         target: { x: arcTgtX, y: arcTgtY },
-        router: {
-          name: 'manhattan',
-          args: {
-            padding: 30 + rnIdx * 15,
-            startDirections: ['right'],
-            endDirections: ['right'],
-          },
-        },
-        connector: { name: 'rounded', args: { radius: 10 } },
+        vertices: [
+          { x: bypassX, y: arcSrcY },       // 1. 水平向右
+          { x: bypassX, y: bypassTopY },     // 2. 垂直向上
+          { x: arcTgtX + 20, y: bypassTopY }, // 3. 水平向左
+        ],
+        connector: { name: 'rounded', args: { radius: 12 } },
         labels: restartDuration > 0 ? [
           {
             position: 0.3 + rnIdx * 0.15,
