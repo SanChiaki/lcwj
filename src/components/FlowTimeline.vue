@@ -338,7 +338,7 @@ const renderFlow = (graph, data) => {
         height: 60,
         shape: 'rect',
         attrs: {
-          body: { fill: '#D3D3D3', stroke: 'none', rx: 6, ry: 6 },
+          body: { fill: '#F0F0F1', stroke: 'none', rx: 6, ry: 6 },
           orderNo: {
             text: orderNoText,
             fill: '#888',
