@@ -11,48 +11,63 @@ const tabs = [
 
 const mockApprovalData = {
   steps: [
+    { id: 'create', label: '创建' },
+    { id: 'review', label: '初审' },
     { id: 'checkin', label: '打卡' },
     { id: 'submit', label: '提交' },
     { id: 'l1', label: 'L1审批' },
   ],
   processes: [
+    // Process 1 (index 0)
     {
       entries: [
+        { stepId: 'create',  arrivedAt: '2026-03-10T12:00:00' },
+        { stepId: 'review',  arrivedAt: '2026-03-10T12:30:00' },
         { stepId: 'checkin', arrivedAt: '2026-03-10T13:15:00' },
-        { stepId: 'submit', arrivedAt: '2026-03-10T14:15:00' },
-        { stepId: 'l1', arrivedAt: '2026-03-10T15:15:00' },
+        { stepId: 'submit',  arrivedAt: '2026-03-10T14:15:00' },
+        { stepId: 'l1',      arrivedAt: '2026-03-10T15:15:00' },
       ],
     },
+    // Process 2 (index 1)
     {
       entries: [
+        { stepId: 'create',  arrivedAt: '2026-03-10T12:10:00' },
+        { stepId: 'review',  arrivedAt: '2026-03-10T12:40:00' },
         { stepId: 'checkin', arrivedAt: '2026-03-10T13:35:00' },
-        { stepId: 'submit', arrivedAt: '2026-03-10T14:25:00' },
-        { stepId: 'l1', arrivedAt: '2026-03-10T15:25:00' },
+        { stepId: 'submit',  arrivedAt: '2026-03-10T14:25:00' },
+        { stepId: 'l1',      arrivedAt: '2026-03-10T15:25:00' },
       ],
     },
+    // Process 3 (index 2) — 在L1审批被驳回
     {
       entries: [
+        { stepId: 'create',  arrivedAt: '2026-03-10T12:20:00' },
+        { stepId: 'review',  arrivedAt: '2026-03-10T12:50:00' },
         { stepId: 'checkin', arrivedAt: '2026-03-10T14:55:00' },
-        { stepId: 'submit', arrivedAt: '2026-03-10T15:05:00' },
-        { stepId: 'l1', arrivedAt: '2026-03-10T15:25:00', rejected: true },
+        { stepId: 'submit',  arrivedAt: '2026-03-10T15:05:00' },
+        { stepId: 'l1',      arrivedAt: '2026-03-10T15:25:00', rejected: true },
       ],
       rejection: {
         restartFromStepId: 'checkin',
         newProcessIndex: 3,
       },
     },
+    // Process 4 (index 3) — 由 Process 3 驳回后重新开始
     {
       entries: [
         { stepId: 'checkin', arrivedAt: '2026-03-10T15:45:00' },
-        { stepId: 'submit', arrivedAt: '2026-03-10T15:55:00' },
-        { stepId: 'l1', arrivedAt: '2026-03-10T16:55:00' },
+        { stepId: 'submit',  arrivedAt: '2026-03-10T15:55:00' },
+        { stepId: 'l1',      arrivedAt: '2026-03-10T16:55:00' },
       ],
     },
-    // Process 5 (index 4) — 在提交步骤被驳回
+    // Process 5 (index 4) — 在L1审批被驳回
     {
       entries: [
+        { stepId: 'create',  arrivedAt: '2026-03-10T16:00:00' },
+        { stepId: 'review',  arrivedAt: '2026-03-10T16:20:00' },
         { stepId: 'checkin', arrivedAt: '2026-03-10T17:00:00' },
-        { stepId: 'submit',  arrivedAt: '2026-03-10T17:10:00', rejected: true },
+        { stepId: 'submit',  arrivedAt: '2026-03-10T17:10:00' },
+        { stepId: 'l1',      arrivedAt: '2026-03-10T17:20:00', rejected: true },
       ],
       rejection: {
         restartFromStepId: 'checkin',
@@ -64,26 +79,7 @@ const mockApprovalData = {
       entries: [
         { stepId: 'checkin', arrivedAt: '2026-03-10T17:30:00' },
         { stepId: 'submit',  arrivedAt: '2026-03-10T17:40:00' },
-        { stepId: 'l1', arrivedAt: '2026-03-10T18:40:00' },
-      ],
-    },
-    // Process 7 (index 6) — 在提交步骤被驳回
-    {
-      entries: [
-        { stepId: 'checkin', arrivedAt: '2026-03-10T18:50:00' },
-        { stepId: 'submit',  arrivedAt: '2026-03-10T19:00:00', rejected: true },
-      ],
-      rejection: {
-        restartFromStepId: 'checkin',
-        newProcessIndex: 7,
-      },
-    },
-    // Process 8 (index 7) — 由 Process 7 驳回后重新开始
-    {
-      entries: [
-        { stepId: 'checkin', arrivedAt: '2026-03-10T19:20:00' },
-        { stepId: 'submit',  arrivedAt: '2026-03-10T19:30:00' },
-        { stepId: 'l1', arrivedAt: '2026-03-10T20:30:00' },
+        { stepId: 'l1',      arrivedAt: '2026-03-10T18:40:00' },
       ],
     },
   ],

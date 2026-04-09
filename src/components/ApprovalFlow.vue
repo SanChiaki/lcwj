@@ -499,7 +499,7 @@ const renderFlow = (graph, data) => {
         connector: { name: 'rounded', args: { radius: 10 } },
         labels: restartDuration > 0 ? [
           {
-            position: 0.5,
+            position: 0.3 + rnIdx * 0.15,
             attrs: {
               label: {
                 text: `Process ${rn.newProcessIndex + 1}: ${formatDuration(restartDuration)}`,
